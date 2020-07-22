@@ -1,0 +1,2 @@
+# DSync
+ Sync MC & Discord

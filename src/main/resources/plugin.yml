@@ -1,0 +1,4 @@
+name: DSync
+version: ${project.version}
+main: pf.mrbutters.dev.dsync.DSync
+description: Sync MC and Discord!
