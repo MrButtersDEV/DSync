@@ -22,7 +22,6 @@ public class Unlink extends Command{
     public void execute(CommandSender sender, String[] args) {
         if (sender instanceof ProxiedPlayer) {
             ProxiedPlayer player = (ProxiedPlayer) sender;
-            UUID uuid = player.getUniqueId();
             if (DSync.isLinked(player.getUniqueId())) {
                 DSync.unlinkViaUUID(player.getUniqueId());
                 TextComponent message = new TextComponent(ChatColor.AQUA + "You have successfully unlinked your MC account with Discord!");
