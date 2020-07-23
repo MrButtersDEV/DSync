@@ -1,42 +1,32 @@
 package pf.mrbutters.dev.dsync;
 
-import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
-import net.dv8tion.jda.api.JDA;
-import net.dv8tion.jda.api.JDABuilder;
-import net.dv8tion.jda.api.entities.ChannelType;
-import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
-import net.dv8tion.jda.api.hooks.AnnotatedEventManager;
-import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.md_5.bungee.api.ProxyServer;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
 import net.md_5.bungee.api.plugin.Plugin;
 import net.md_5.bungee.config.YamlConfiguration;
-import org.omg.PortableInterceptor.SYSTEM_EXCEPTION;
 import pf.mrbutters.dev.dsync.commands.Link;
 import pf.mrbutters.dev.dsync.commands.Unlink;
 import pf.mrbutters.dev.dsync.discord.BOT;
 
-import net.md_5.bungee.api.plugin.Plugin;
 import net.md_5.bungee.config.Configuration;
-import javax.security.auth.login.LoginException;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.HashMap;
-import java.util.Properties;
 import java.util.UUID;
 
 public final class DSync extends Plugin {
 
-    private BOT bot = null;
+    private static BOT bot = null;
     private static HikariDataSource hikari;
+    private static HikariDataSource hikari_luckperms;
     private static Configuration conf;
     public static HashMap<ProxiedPlayer, String> linkCode = new HashMap<>();
 
@@ -60,13 +50,16 @@ public final class DSync extends Plugin {
         // MySQL
         hikari = new HikariDataSource();
         hikari.setJdbcUrl("jdbc:mysql://" + conf.get("MySQL.address") + ":" + conf.get("MySQL.port") + "/" + conf.get("MySQL.database") + "?autoReconnect=true&useSSL=false");
-        hikari.addDataSourceProperty("serverName", conf.get("MySQL.address"));
-        hikari.addDataSourceProperty("port", conf.get("MySQL.port"));
-        hikari.addDataSourceProperty("databaseName", conf.get("MySQL.database"));
         hikari.addDataSourceProperty("user", conf.get("MySQL.username"));
         hikari.addDataSourceProperty("password", conf.get("MySQL.password"));
 
-        createTable();
+        // MySQL - LuckPerms
+        hikari_luckperms = new HikariDataSource();
+        hikari_luckperms.setJdbcUrl("jdbc:mysql://" + conf.get("GroupsMySQL.address") + ":" + conf.get("GroupsMySQL.port") + "/" + conf.get("GroupsMySQL.database") + "?autoReconnect=true&useSSL=false");
+        hikari_luckperms.addDataSourceProperty("user", conf.get("GroupsMySQL.username"));
+        hikari_luckperms.addDataSourceProperty("password", conf.get("GroupsMySQL.password"));
+
+        createTable(); // Creates the discord_link table if one does not exist
 
         // Commands
         ProxyServer.getInstance().getPluginManager().registerCommand(this, new Link());
@@ -83,10 +76,18 @@ public final class DSync extends Plugin {
             hikari.close();
         }
 
+        if (hikari_luckperms!=null) {
+            hikari_luckperms.close();
+        }
+
     }
 
     public HikariDataSource getHikari(){
         return hikari;
+    }
+
+    public HikariDataSource getHikariLuckperms() {
+        return hikari_luckperms;
     }
 
     private void registerConfig(){
@@ -126,7 +127,6 @@ public final class DSync extends Plugin {
     }
 
     public static UUID mysqlD2MC(String discordID) {
-        System.out.println("DiscordID: " + discordID);
         try(Connection connection = hikari.getConnection();
             Statement statement = connection.createStatement()){
             ResultSet rs;
@@ -138,6 +138,66 @@ public final class DSync extends Plugin {
             System.out.println("[DSync] Failed to convert DiscordID to MC-UUID");
             e.printStackTrace();
             return null;
+        }
+    }
+
+    public static String mysqlMC2D(UUID PlayerUUID) {
+        try(Connection connection = hikari.getConnection();
+            Statement statement = connection.createStatement()){
+            ResultSet rs = statement.executeQuery("SELECT DiscordID FROM discord_link WHERE PlayerUUID = '"+PlayerUUID+"';");
+            if(rs.next()){
+                return (rs.getString(1));
+            } else {return null;}
+        } catch (SQLException e) {
+            System.out.println("[DSync] Failed to convert MC-UUID to DiscordID");
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public static boolean checkRank(UUID mcUUID, String rank){
+        try(Connection connection = hikari_luckperms.getConnection();
+            Statement statement = connection.createStatement()){
+            ResultSet rs = statement.executeQuery("SELECT * FROM `luckperms_user_permissions` WHERE uuid = '" + mcUUID+ "' AND permission = 'group." + rank +"';");
+            return rs.next();
+        } catch (SQLException e) {
+            System.out.println("[DSync] Failed to check LuckPerms rank! [UUID: " + mcUUID + " Rank: " + rank + "]");
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public static boolean isLinked(UUID mcUUID) {
+        try(Connection connection = hikari.getConnection();
+            Statement statement = connection.createStatement()){
+            ResultSet rs = statement.executeQuery("SELECT DiscordID FROM discord_link WHERE PlayerUUID = '"+mcUUID+"';");
+            return rs.next();
+        } catch (SQLException e) {
+            System.out.println("[DSync-UUID] Failed to check if user is linked!");
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public static boolean isLinked(String discordID) {
+        try(Connection connection = hikari.getConnection();
+            Statement statement = connection.createStatement()){
+            ResultSet rs = statement.executeQuery("SELECT PlayerUUID FROM discord_link WHERE DiscordID = '"+discordID+"';");
+            return rs.next();
+        } catch (SQLException e) {
+            System.out.println("[DSync-DiscordID] Failed to check if user is linked!");
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public static void unlinkViaUUID(UUID mcUUID) {
+        try(Connection connection = hikari.getConnection();
+            Statement statement = connection.createStatement()){
+            statement.executeUpdate("DELETE FROM discord_link WHERE PlayerUUID = '"+mcUUID+"';");
+        } catch (SQLException e) {
+            System.out.println("[DSync-DiscordID] Failed to unlink account! [UUID: "+mcUUID+"]");
+            e.printStackTrace();
         }
     }
 

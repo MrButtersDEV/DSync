@@ -2,7 +2,7 @@ name: DSync
 version: ${project.version}
 main: pf.mrbutters.dev.dsync.DSync
 description: Sync MC and Discord!
-auther: BUTTERFIELD8
+author: BUTTERFIELD8
 commands:
   link:
     description: "Links MC and Discord"

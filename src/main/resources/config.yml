@@ -1,5 +1,6 @@
 Bot:
   token: "TOKEN"
+  guild: '422473748130562059'
 
 MySQL:
   address: 0.0.0.0
