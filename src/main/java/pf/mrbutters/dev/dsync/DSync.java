@@ -110,6 +110,7 @@ public final class DSync extends Plugin {
             Statement statement = connection.createStatement()){  // varchar(36)
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS discord_link(id int AUTO_INCREMENT PRIMARY KEY, PlayerUUID text, DiscordID text)");
             System.out.println("[DSync] Creating a database table if one does not exist!");
+            statement.close();
         } catch (SQLException e) {
             System.out.println("[DSync] Failed to create database tablet!");
             e.printStackTrace();
@@ -120,6 +121,7 @@ public final class DSync extends Plugin {
         try(Connection connection = hikari.getConnection();
             Statement statement = connection.createStatement()){
             statement.executeUpdate("INSERT INTO discord_link(id, PlayerUUID, DiscordID) VALUES(DEFAULT, '"+uuid+"','"+discordid+"')");
+            statement.close();
         } catch (SQLException e) {
             System.out.println("[DSync] Failed to link user!");
             e.printStackTrace();
@@ -195,6 +197,7 @@ public final class DSync extends Plugin {
         try(Connection connection = hikari.getConnection();
             Statement statement = connection.createStatement()){
             statement.executeUpdate("DELETE FROM discord_link WHERE PlayerUUID = '"+mcUUID+"';");
+            statement.close();
         } catch (SQLException e) {
             System.out.println("[DSync-DiscordID] Failed to unlink account! [UUID: "+mcUUID+"]");
             e.printStackTrace();
