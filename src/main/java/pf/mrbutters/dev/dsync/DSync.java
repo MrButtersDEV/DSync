@@ -15,10 +15,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.*;
 import java.util.HashMap;
 import java.util.UUID;
 
@@ -119,9 +116,11 @@ public final class DSync extends Plugin {
 
     public static void mysqlSet(String uuid, String discordid){
         try(Connection connection = hikari.getConnection();
-            Statement statement = connection.createStatement()){
-            statement.executeUpdate("INSERT INTO discord_link(id, PlayerUUID, DiscordID) VALUES(DEFAULT, '"+uuid+"','"+discordid+"')");
-            statement.close();
+            PreparedStatement pstmt = connection.prepareStatement("INSERT INTO discord_link(id, PlayerUUID, DiscordID) VALUES(DEFAULT, ?, ?)")){
+            pstmt.setString(1, uuid);
+            pstmt.setString(2, discordid);
+            pstmt.execute();
+            pstmt.close();
         } catch (SQLException e) {
             System.out.println("[DSync] Failed to link user!");
             e.printStackTrace();
@@ -130,9 +129,9 @@ public final class DSync extends Plugin {
 
     public static UUID mysqlD2MC(String discordID) {
         try(Connection connection = hikari.getConnection();
-            Statement statement = connection.createStatement()){
-            ResultSet rs;
-            rs = statement.executeQuery("SELECT PlayerUUID FROM discord_link WHERE DiscordID = '"+discordID+"';");
+            PreparedStatement pstmt = connection.prepareStatement("SELECT PlayerUUID FROM discord_link WHERE DiscordID = ?;")){
+            pstmt.setString(1, discordID);
+            ResultSet rs = pstmt.executeQuery();
             if(rs.next()){
                 return UUID.fromString(rs.getString(1));
             } else {return null;}
@@ -145,8 +144,9 @@ public final class DSync extends Plugin {
 
     public static String mysqlMC2D(UUID PlayerUUID) {
         try(Connection connection = hikari.getConnection();
-            Statement statement = connection.createStatement()){
-            ResultSet rs = statement.executeQuery("SELECT DiscordID FROM discord_link WHERE PlayerUUID = '"+PlayerUUID+"';");
+            PreparedStatement pstmt = connection.prepareStatement("SELECT DiscordID FROM discord_link WHERE PlayerUUID = ?;")){
+            pstmt.setString(1, PlayerUUID.toString());
+            ResultSet rs = pstmt.executeQuery();
             if(rs.next()){
                 return (rs.getString(1));
             } else {return null;}
@@ -159,8 +159,10 @@ public final class DSync extends Plugin {
 
     public static boolean checkRank(UUID mcUUID, String rank){
         try(Connection connection = hikari_luckperms.getConnection();
-            Statement statement = connection.createStatement()){
-            ResultSet rs = statement.executeQuery("SELECT * FROM `luckperms_user_permissions` WHERE uuid = '" + mcUUID+ "' AND permission = 'group." + rank +"';");
+            PreparedStatement pstmt = connection.prepareStatement("SELECT * FROM `luckperms_user_permissions` WHERE uuid = ? AND permission = ?;")){
+            pstmt.setString(1, mcUUID.toString());
+            pstmt.setString(2, "group."+rank);
+            ResultSet rs = pstmt.executeQuery();
             return rs.next();
         } catch (SQLException e) {
             System.out.println("[DSync] Failed to check LuckPerms rank! [UUID: " + mcUUID + " Rank: " + rank + "]");
@@ -171,8 +173,9 @@ public final class DSync extends Plugin {
 
     public static boolean isLinked(UUID mcUUID) {
         try(Connection connection = hikari.getConnection();
-            Statement statement = connection.createStatement()){
-            ResultSet rs = statement.executeQuery("SELECT DiscordID FROM discord_link WHERE PlayerUUID = '"+mcUUID+"';");
+            PreparedStatement pstmt = connection.prepareStatement("SELECT DiscordID FROM discord_link WHERE PlayerUUID = ?;")){
+            pstmt.setString(1, mcUUID.toString());
+            ResultSet rs = pstmt.executeQuery();
             return rs.next();
         } catch (SQLException e) {
             System.out.println("[DSync-UUID] Failed to check if user is linked!");
@@ -183,8 +186,9 @@ public final class DSync extends Plugin {
 
     public static boolean isLinked(String discordID) {
         try(Connection connection = hikari.getConnection();
-            Statement statement = connection.createStatement()){
-            ResultSet rs = statement.executeQuery("SELECT PlayerUUID FROM discord_link WHERE DiscordID = '"+discordID+"';");
+            PreparedStatement pstmt = connection.prepareStatement("SELECT PlayerUUID FROM discord_link WHERE DiscordID = ?;")){
+            pstmt.setString(1, discordID);
+            ResultSet rs = pstmt.executeQuery();
             return rs.next();
         } catch (SQLException e) {
             System.out.println("[DSync-DiscordID] Failed to check if user is linked!");
@@ -195,9 +199,10 @@ public final class DSync extends Plugin {
 
     public static void unlinkViaUUID(UUID mcUUID) {
         try(Connection connection = hikari.getConnection();
-            Statement statement = connection.createStatement()){
-            statement.executeUpdate("DELETE FROM discord_link WHERE PlayerUUID = '"+mcUUID+"';");
-            statement.close();
+            PreparedStatement pstmt = connection.prepareStatement("DELETE FROM discord_link WHERE PlayerUUID = ?;")){
+            pstmt.setString(1, mcUUID.toString());
+            pstmt.execute();
+            pstmt.close();
         } catch (SQLException e) {
             System.out.println("[DSync-DiscordID] Failed to unlink account! [UUID: "+mcUUID+"]");
             e.printStackTrace();
